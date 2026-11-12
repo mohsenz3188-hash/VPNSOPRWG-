@@ -1,10 +1,8 @@
 name: Build Pasargad VPN APK
-
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
-
 jobs:
   build-android-apk:
     name: Compile Android Release APK
@@ -20,7 +18,6 @@ jobs:
           flutter-version: '3.24.3'
           channel: 'stable'
           cache: true
-
       - name: Create Flutter Project & Source
         run: |
           flutter create --platforms=android --org com.pasargad --project-name pasargad_vpn .
@@ -77,16 +74,12 @@ jobs:
           class PasargadApiService {
             final _dio = Dio(BaseOptions(baseUrl: AppConstants.baseUrl, connectTimeout: const Duration(seconds: 15), receiveTimeout: const Duration(seconds: 15)));
             String? _token;
-
             Future<String> _getToken() async {
               if (_token != null) return _token!;
-              final res = await _dio.post('/admin/token',
-                data: {'username': AppConstants.panelAdminUser, 'password': AppConstants.panelAdminPass},
-                options: Options(contentType: Headers.formUrlEncodedContentType));
+              final res = await _dio.post('/admin/token', data: {'username': AppConstants.panelAdminUser, 'password': AppConstants.panelAdminPass}, options: Options(contentType: Headers.formUrlEncodedContentType));
               _token = res.data['access_token'] as String;
               return _token!;
             }
-
             Future<UserSession> login(String u, String p) async {
               final tok = await _getToken();
               final res = await _dio.get('/user/${u.trim()}', options: Options(headers: {'Authorization': 'Bearer $tok'}));
@@ -97,27 +90,14 @@ jobs:
               final subUrl = (d['subscription_url'] ?? '').toString();
               if (subUrl.isNotEmpty) {
                 final fullSub = subUrl.startsWith('http') ? subUrl : 'https://psg.wvteam.site:8000$subUrl';
-                final subRes = await Dio().get(fullSub, options: Options(headers: {'User-Agent': 'WireGuard'}));
-                wgConf = subRes.data.toString();
+                wgConf = (await Dio().get(fullSub, options: Options(headers: {'User-Agent': 'WireGuard'}))).data.toString();
               }
               final ep = RegExp(r'Endpoint\s*=\s*([^\s\r\n]+)', caseSensitive: false).firstMatch(wgConf)?.group(1) ?? 'psg.wvteam.site:51820';
-              return UserSession(
-                username: (d['username'] ?? u).toString(),
-                wgQuickConfig: wgConf,
-                serverEndpoint: ep,
-                dataLimitBytes: (d['data_limit'] ?? 0) as int,
-                dataUsedBytes: (d['used_traffic'] ?? 0) as int,
-                isActive: (d['status'] ?? 'active') == 'active',
-              );
+              return UserSession(username: (d['username'] ?? u).toString(), wgQuickConfig: wgConf, serverEndpoint: ep, dataLimitBytes: (d['data_limit'] ?? 0) as int, dataUsedBytes: (d['used_traffic'] ?? 0) as int, isActive: (d['status'] ?? 'active') == 'active');
             }
-
-            Future<UserSession> status(String u, String p) => login(u, p);
-
             Future<void> createUser(String u, String p, int gb) async {
               final tok = await _getToken();
-              await _dio.post('/user',
-                data: {'username': u.trim(), 'data_limit': gb * 1024 * 1024 * 1024, 'status': 'active', 'note': p},
-                options: Options(headers: {'Authorization': 'Bearer $tok'}));
+              await _dio.post('/user', data: {'username': u.trim(), 'data_limit': gb * 1024 * 1024 * 1024, 'status': 'active', 'note': p}, options: Options(headers: {'Authorization': 'Bearer $tok'}));
             }
           }
 
@@ -126,8 +106,7 @@ jobs:
             final UserSession? session;
             final String? error, pass;
             const AuthState({this.isLoading = false, this.isAdmin = false, this.session, this.error, this.pass});
-            AuthState copyWith({bool? isLoading, bool? isAdmin, UserSession? session, String? error, String? pass}) =>
-              AuthState(isLoading: isLoading ?? this.isLoading, isAdmin: isAdmin ?? this.isAdmin, session: session ?? this.session, error: error, pass: pass ?? this.pass);
+            AuthState copyWith({bool? isLoading, bool? isAdmin, UserSession? session, String? error, String? pass}) => AuthState(isLoading: isLoading ?? this.isLoading, isAdmin: isAdmin ?? this.isAdmin, session: session ?? this.session, error: error, pass: pass ?? this.pass);
           }
 
           class AuthNotifier extends StateNotifier<AuthState> {
@@ -138,9 +117,7 @@ jobs:
               state = state.copyWith(isLoading: true);
               try {
                 final u = await _storage.read(key: 'u'), p = await _storage.read(key: 'p');
-                if (u != null && p != null && u.isNotEmpty && p.isNotEmpty) {
-                  state = state.copyWith(isLoading: false, session: await _api.login(u, p), pass: p); return;
-                }
+                if (u != null && p != null && u.isNotEmpty && p.isNotEmpty) { state = state.copyWith(isLoading: false, session: await _api.login(u, p), pass: p); return; }
               } catch (_) {}
               state = state.copyWith(isLoading: false);
             }
@@ -154,16 +131,12 @@ jobs:
             }
             Future<void> refreshQuota() async {
               if (state.session == null) return;
-              try { state = state.copyWith(session: await _api.status(state.session!.username, state.pass ?? '')); } catch (_) {}
+              try { state = state.copyWith(session: await _api.login(state.session!.username, state.pass ?? '')); } catch (_) {}
             }
-            bool loginAdmin(String p) {
-              if (p == AppConstants.adminMasterPassword) { state = state.copyWith(isAdmin: true, error: null); return true; }
-              return false;
-            }
+            bool loginAdmin(String p) { if (p == AppConstants.adminMasterPassword) { state = state.copyWith(isAdmin: true, error: null); return true; } return false; }
             Future<bool> createUser(String u, String p, int gb) async {
               state = state.copyWith(isLoading: true, error: null);
-              try { await _api.createUser(u, p, gb); state = state.copyWith(isLoading: false); return true; }
-              catch (e) { state = state.copyWith(isLoading: false, error: e.toString()); return false; }
+              try { await _api.createUser(u, p, gb); state = state.copyWith(isLoading: false); return true; } catch (e) { state = state.copyWith(isLoading: false, error: e.toString()); return false; }
             }
             Future<void> logout() async { await _storage.deleteAll(); state = const AuthState(); }
           }
@@ -177,15 +150,12 @@ jobs:
             Future<void> toggle() async {
               final cur = state.valueOrNull ?? VpnStage.disconnected;
               if (!_init) { await _wg.initialize(interfaceName: AppConstants.wgInterfaceName); _init = true; }
-              if (cur == VpnStage.connected || cur == VpnStage.connecting) {
-                state = const AsyncValue.loading(); await _wg.stopVpn(); await _ref.read(authProvider.notifier).refreshQuota(); return;
-              }
+              if (cur == VpnStage.connected || cur == VpnStage.connecting) { state = const AsyncValue.loading(); await _wg.stopVpn(); await _ref.read(authProvider.notifier).refreshQuota(); return; }
               final s = _ref.read(authProvider).session;
               if (s == null || !s.isActive || s.remainingBytes <= 0) { state = AsyncValue.error('Quota exhausted or inactive', StackTrace.current); return; }
-              if (!s.wgQuickConfig.contains('[Interface]')) { state = AsyncValue.error('No WireGuard config found in subscription', StackTrace.current); return; }
+              if (!s.wgQuickConfig.contains('[Interface]')) { state = AsyncValue.error('No WireGuard config found', StackTrace.current); return; }
               state = const AsyncValue.loading();
-              try { await _wg.startVpn(serverAddress: s.serverEndpoint, wgQuickConfig: s.wgQuickConfig, providerBundleIdentifier: 'com.pasargad.vpn.wg'); }
-              catch (e, st) { state = AsyncValue.error(e, st); }
+              try { await _wg.startVpn(serverAddress: s.serverEndpoint, wgQuickConfig: s.wgQuickConfig, providerBundleIdentifier: 'com.pasargad.vpn.wg'); } catch (e, st) { state = AsyncValue.error(e, st); }
             }
           }
           final vpnProvider = StateNotifierProvider<VpnNotifier, AsyncValue<VpnStage>>((ref) => VpnNotifier(ref));
@@ -295,9 +265,10 @@ jobs:
 
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
-
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Pasargad-VPN-Release-APK
-          path: build/app/outputs/flutt
+          path: build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: error
+          
