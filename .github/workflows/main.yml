@@ -55,61 +55,79 @@ jobs:
           import 'package:wireguard_flutter/wireguard_flutter_platform_interface.dart';
 
           class AppConstants {
-            static const baseUrl = 'https://panel.pasargad-vpn.example.com/api/v1';
-            static const panelAdminApiKey = 'PASARGAD_PANEL_ADMIN_SECRET_BEARER_KEY';
+            static const baseUrl = 'https://psg.wvteam.site:8000/api';
+            static const panelAdminUser = 'rs_reza3128';
+            static const panelAdminPass = r'jHGzBcf2P7Zh8H*#';
             static const adminMasterPassword = r'P@s$w0rd_Admin_Pasargad!2026#X';
             static const wgInterfaceName = 'wg_pasargad0';
           }
 
           class UserSession {
-            final String username, accessToken, wgQuickConfig, serverEndpoint;
+            final String username, wgQuickConfig, serverEndpoint;
             final int dataLimitBytes, dataUsedBytes;
             final bool isActive;
-            const UserSession({required this.username, required this.accessToken, required this.wgQuickConfig, required this.serverEndpoint, required this.dataLimitBytes, required this.dataUsedBytes, required this.isActive});
-            int get remainingBytes => (dataLimitBytes - dataUsedBytes).clamp(0, dataLimitBytes);
+            const UserSession({required this.username, required this.wgQuickConfig, required this.serverEndpoint, required this.dataLimitBytes, required this.dataUsedBytes, required this.isActive});
+            int get remainingBytes => dataLimitBytes > 0 ? (dataLimitBytes - dataUsedBytes).clamp(0, dataLimitBytes) : 999999999999;
             double get remainingGb => remainingBytes / (1024 * 1024 * 1024);
             double get totalGb => dataLimitBytes / (1024 * 1024 * 1024);
             double get usedGb => dataUsedBytes / (1024 * 1024 * 1024);
             double get usageRatio => dataLimitBytes > 0 ? (dataUsedBytes / dataLimitBytes).clamp(0.0, 1.0) : 0.0;
-            factory UserSession.fromJson(Map<String, dynamic> j, {String? fallbackToken}) {
-              final raw = (j['wireguard_config'] ?? j['wg_config'] ?? '') as String;
-              final ep = (j['server_endpoint'] ?? RegExp(r'Endpoint\s*=\s*([^\s\r\n]+)', caseSensitive: false).firstMatch(raw)?.group(1) ?? '127.0.0.1:51820').toString();
-              return UserSession(
-                username: (j['username'] ?? '') as String, accessToken: (j['access_token'] ?? fallbackToken ?? '') as String,
-                wgQuickConfig: raw, serverEndpoint: ep,
-                dataLimitBytes: (j['data_limit_bytes'] ?? j['data_limit'] ?? 0) as int,
-                dataUsedBytes: (j['data_used_bytes'] ?? j['used_traffic'] ?? 0) as int,
-                isActive: (j['status'] ?? 'active') == 'active',
-              );
-            }
           }
 
           class PasargadApiService {
-            final _dio = Dio(BaseOptions(baseUrl: AppConstants.baseUrl, connectTimeout: const Duration(seconds: 12), receiveTimeout: const Duration(seconds: 12)));
+            final _dio = Dio(BaseOptions(baseUrl: AppConstants.baseUrl, connectTimeout: const Duration(seconds: 15), receiveTimeout: const Duration(seconds: 15)));
+            String? _token;
+
+            Future<String> _getToken() async {
+              if (_token != null) return _token!;
+              final res = await _dio.post('/admin/token',
+                data: {'username': AppConstants.panelAdminUser, 'password': AppConstants.panelAdminPass},
+                options: Options(contentType: Headers.formUrlEncodedContentType));
+              _token = res.data['access_token'] as String;
+              return _token!;
+            }
+
             Future<UserSession> login(String u, String p) async {
-              final res = await _dio.post('/client/auth/login', data: {'username': u.trim(), 'password': p});
-              final d = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : res.data['data'] as Map<String, dynamic>;
-              return UserSession.fromJson(d);
+              final tok = await _getToken();
+              final res = await _dio.get('/user/${u.trim()}', options: Options(headers: {'Authorization': 'Bearer $tok'}));
+              final d = res.data as Map<String, dynamic>;
+              final note = (d['note'] ?? '').toString();
+              if (note.isNotEmpty && note != p) throw Exception('Invalid password');
+              String wgConf = '';
+              final subUrl = (d['subscription_url'] ?? '').toString();
+              if (subUrl.isNotEmpty) {
+                final fullSub = subUrl.startsWith('http') ? subUrl : 'https://psg.wvteam.site:8000$subUrl';
+                final subRes = await Dio().get(fullSub, options: Options(headers: {'User-Agent': 'WireGuard'}));
+                wgConf = subRes.data.toString();
+              }
+              final ep = RegExp(r'Endpoint\s*=\s*([^\s\r\n]+)', caseSensitive: false).firstMatch(wgConf)?.group(1) ?? 'psg.wvteam.site:51820';
+              return UserSession(
+                username: (d['username'] ?? u).toString(),
+                wgQuickConfig: wgConf,
+                serverEndpoint: ep,
+                dataLimitBytes: (d['data_limit'] ?? 0) as int,
+                dataUsedBytes: (d['used_traffic'] ?? 0) as int,
+                isActive: (d['status'] ?? 'active') == 'active',
+              );
             }
-            Future<UserSession> status(String token, String u) async {
-              final res = await _dio.get('/client/user/$u/status', options: Options(headers: {'Authorization': 'Bearer $token'}));
-              final d = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : res.data['data'] as Map<String, dynamic>;
-              return UserSession.fromJson(d, fallbackToken: token);
-            }
+
+            Future<UserSession> status(String u, String p) => login(u, p);
+
             Future<void> createUser(String u, String p, int gb) async {
-              await _dio.post('/admin/users/create',
-                data: {'username': u.trim(), 'password': p, 'protocol': 'wireguard', 'data_limit': gb * 1024 * 1024 * 1024, 'data_limit_gb': gb, 'status': 'active'},
-                options: Options(headers: {'Authorization': 'Bearer ${AppConstants.panelAdminApiKey}'}));
+              final tok = await _getToken();
+              await _dio.post('/user',
+                data: {'username': u.trim(), 'data_limit': gb * 1024 * 1024 * 1024, 'status': 'active', 'note': p},
+                options: Options(headers: {'Authorization': 'Bearer $tok'}));
             }
           }
 
           class AuthState {
             final bool isLoading, isAdmin;
             final UserSession? session;
-            final String? error;
-            const AuthState({this.isLoading = false, this.isAdmin = false, this.session, this.error});
-            AuthState copyWith({bool? isLoading, bool? isAdmin, UserSession? session, String? error}) =>
-              AuthState(isLoading: isLoading ?? this.isLoading, isAdmin: isAdmin ?? this.isAdmin, session: session ?? this.session, error: error);
+            final String? error, pass;
+            const AuthState({this.isLoading = false, this.isAdmin = false, this.session, this.error, this.pass});
+            AuthState copyWith({bool? isLoading, bool? isAdmin, UserSession? session, String? error, String? pass}) =>
+              AuthState(isLoading: isLoading ?? this.isLoading, isAdmin: isAdmin ?? this.isAdmin, session: session ?? this.session, error: error, pass: pass ?? this.pass);
           }
 
           class AuthNotifier extends StateNotifier<AuthState> {
@@ -121,7 +139,7 @@ jobs:
               try {
                 final u = await _storage.read(key: 'u'), p = await _storage.read(key: 'p');
                 if (u != null && p != null && u.isNotEmpty && p.isNotEmpty) {
-                  state = state.copyWith(isLoading: false, session: await _api.login(u, p)); return;
+                  state = state.copyWith(isLoading: false, session: await _api.login(u, p), pass: p); return;
                 }
               } catch (_) {}
               state = state.copyWith(isLoading: false);
@@ -131,12 +149,12 @@ jobs:
               try {
                 final s = await _api.login(u, p);
                 await _storage.write(key: 'u', value: u); await _storage.write(key: 'p', value: p);
-                state = state.copyWith(isLoading: false, session: s); return true;
+                state = state.copyWith(isLoading: false, session: s, pass: p); return true;
               } catch (e) { state = state.copyWith(isLoading: false, error: e.toString()); return false; }
             }
             Future<void> refreshQuota() async {
               if (state.session == null) return;
-              try { state = state.copyWith(session: await _api.status(state.session!.accessToken, state.session!.username)); } catch (_) {}
+              try { state = state.copyWith(session: await _api.status(state.session!.username, state.pass ?? '')); } catch (_) {}
             }
             bool loginAdmin(String p) {
               if (p == AppConstants.adminMasterPassword) { state = state.copyWith(isAdmin: true, error: null); return true; }
@@ -164,6 +182,7 @@ jobs:
               }
               final s = _ref.read(authProvider).session;
               if (s == null || !s.isActive || s.remainingBytes <= 0) { state = AsyncValue.error('Quota exhausted or inactive', StackTrace.current); return; }
+              if (!s.wgQuickConfig.contains('[Interface]')) { state = AsyncValue.error('No WireGuard config found in subscription', StackTrace.current); return; }
               state = const AsyncValue.loading();
               try { await _wg.startVpn(serverAddress: s.serverEndpoint, wgQuickConfig: s.wgQuickConfig, providerBundleIdentifier: 'com.pasargad.vpn.wg'); }
               catch (e, st) { state = AsyncValue.error(e, st); }
@@ -281,6 +300,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Pasargad-VPN-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          
+          path: build/app/outputs/flutt
