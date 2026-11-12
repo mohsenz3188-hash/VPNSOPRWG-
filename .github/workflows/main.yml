@@ -9,19 +9,13 @@ jobs:
   build-android-apk:
     name: Compile Android Release APK
     runs-on: ubuntu-22.04
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Set up Flutter SDK
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.3'
           channel: 'stable'
@@ -31,48 +25,27 @@ jobs:
         run: |
           flutter create --platforms=android --org com.pasargad --project-name pasargad_vpn .
           flutter pub add flutter_riverpod dio flutter_secure_storage wireguard_flutter crypto
-
           cat << 'MANIFEST_EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
-              <application
-                  android:label="Pasargad VPN"
-                  android:name="${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
+              <application android:label="Pasargad VPN" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
+                  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
                       <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
+                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
                   </activity>
-                  <service
-                      android:name="billion.group.wireguard_flutter.WgVpnService"
-                      android:permission="android.permission.BIND_VPN_SERVICE"
-                      android:exported="false">
-                      <intent-filter>
-                          <action android:name="android.net.VpnService" />
-                      </intent-filter>
+                  <service android:name="billion.group.wireguard_flutter.WgVpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false">
+                      <intent-filter><action android:name="android.net.VpnService" /></intent-filter>
                   </service>
                   <meta-data android:name="flutterEmbedding" android:value="2" />
               </application>
           </manifest>
           MANIFEST_EOF
-
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' android/app/build.gradle || true
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' android/app/build.gradle || true
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' android/app/build.gradle.kts || true
-
           cat << 'DART_EOF' > lib/main.dart
           import 'package:dio/dio.dart';
           import 'package:flutter/material.dart';
@@ -82,10 +55,10 @@ jobs:
           import 'package:wireguard_flutter/wireguard_flutter_platform_interface.dart';
 
           class AppConstants {
-            static const String baseUrl = 'https://panel.pasargad-vpn.example.com/api/v1';
-            static const String panelAdminApiKey = 'PASARGAD_PANEL_ADMIN_SECRET_BEARER_KEY';
-            static const String adminMasterPassword = r'P@s$w0rd_Admin_Pasargad!2026#X';
-            static const String wgInterfaceName = 'wg_pasargad0';
+            static const baseUrl = 'https://panel.pasargad-vpn.example.com/api/v1';
+            static const panelAdminApiKey = 'PASARGAD_PANEL_ADMIN_SECRET_BEARER_KEY';
+            static const adminMasterPassword = r'P@s$w0rd_Admin_Pasargad!2026#X';
+            static const wgInterfaceName = 'wg_pasargad0';
           }
 
           class UserSession {
@@ -98,23 +71,21 @@ jobs:
             double get totalGb => dataLimitBytes / (1024 * 1024 * 1024);
             double get usedGb => dataUsedBytes / (1024 * 1024 * 1024);
             double get usageRatio => dataLimitBytes > 0 ? (dataUsedBytes / dataLimitBytes).clamp(0.0, 1.0) : 0.0;
-            factory UserSession.fromJson(Map<String, dynamic> json, {String? fallbackToken}) {
-              final raw = (json['wireguard_config'] ?? json['wg_config'] ?? '') as String;
-              final ep = (json['server_endpoint'] ?? RegExp(r'Endpoint\s*=\s*([^\s\r\n]+)', caseSensitive: false).firstMatch(raw)?.group(1) ?? '127.0.0.1:51820').toString();
+            factory UserSession.fromJson(Map<String, dynamic> j, {String? fallbackToken}) {
+              final raw = (j['wireguard_config'] ?? j['wg_config'] ?? '') as String;
+              final ep = (j['server_endpoint'] ?? RegExp(r'Endpoint\s*=\s*([^\s\r\n]+)', caseSensitive: false).firstMatch(raw)?.group(1) ?? '127.0.0.1:51820').toString();
               return UserSession(
-                username: (json['username'] ?? '') as String,
-                accessToken: (json['access_token'] ?? fallbackToken ?? '') as String,
-                wgQuickConfig: raw,
-                serverEndpoint: ep,
-                dataLimitBytes: (json['data_limit_bytes'] ?? json['data_limit'] ?? 0) as int,
-                dataUsedBytes: (json['data_used_bytes'] ?? json['used_traffic'] ?? 0) as int,
-                isActive: (json['status'] ?? 'active') == 'active',
+                username: (j['username'] ?? '') as String, accessToken: (j['access_token'] ?? fallbackToken ?? '') as String,
+                wgQuickConfig: raw, serverEndpoint: ep,
+                dataLimitBytes: (j['data_limit_bytes'] ?? j['data_limit'] ?? 0) as int,
+                dataUsedBytes: (j['data_used_bytes'] ?? j['used_traffic'] ?? 0) as int,
+                isActive: (j['status'] ?? 'active') == 'active',
               );
             }
           }
 
           class PasargadApiService {
-            final Dio _dio = Dio(BaseOptions(baseUrl: AppConstants.baseUrl, connectTimeout: const Duration(seconds: 12), receiveTimeout: const Duration(seconds: 12)));
+            final _dio = Dio(BaseOptions(baseUrl: AppConstants.baseUrl, connectTimeout: const Duration(seconds: 12), receiveTimeout: const Duration(seconds: 12)));
             Future<UserSession> login(String u, String p) async {
               final res = await _dio.post('/client/auth/login', data: {'username': u.trim(), 'password': p});
               final d = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : res.data['data'] as Map<String, dynamic>;
@@ -128,8 +99,7 @@ jobs:
             Future<void> createUser(String u, String p, int gb) async {
               await _dio.post('/admin/users/create',
                 data: {'username': u.trim(), 'password': p, 'protocol': 'wireguard', 'data_limit': gb * 1024 * 1024 * 1024, 'data_limit_gb': gb, 'status': 'active'},
-                options: Options(headers: {'Authorization': 'Bearer ${AppConstants.panelAdminApiKey}'}),
-              );
+                options: Options(headers: {'Authorization': 'Bearer ${AppConstants.panelAdminApiKey}'}));
             }
           }
 
@@ -138,8 +108,8 @@ jobs:
             final UserSession? session;
             final String? error;
             const AuthState({this.isLoading = false, this.isAdmin = false, this.session, this.error});
-            AuthState copyWith({bool? isLoading, bool? isAdmin, UserSession? session, bool clear = false, String? error}) =>
-              AuthState(isLoading: isLoading ?? this.isLoading, isAdmin: isAdmin ?? this.isAdmin, session: clear ? null : (session ?? this.session), error: error);
+            AuthState copyWith({bool? isLoading, bool? isAdmin, UserSession? session, String? error}) =>
+              AuthState(isLoading: isLoading ?? this.isLoading, isAdmin: isAdmin ?? this.isAdmin, session: session ?? this.session, error: error);
           }
 
           class AuthNotifier extends StateNotifier<AuthState> {
@@ -149,12 +119,9 @@ jobs:
             Future<void> _restore() async {
               state = state.copyWith(isLoading: true);
               try {
-                final u = await _storage.read(key: 'u');
-                final p = await _storage.read(key: 'p');
+                final u = await _storage.read(key: 'u'), p = await _storage.read(key: 'p');
                 if (u != null && p != null && u.isNotEmpty && p.isNotEmpty) {
-                  final s = await _api.login(u, p);
-                  state = state.copyWith(isLoading: false, session: s);
-                  return;
+                  state = state.copyWith(isLoading: false, session: await _api.login(u, p)); return;
                 }
               } catch (_) {}
               state = state.copyWith(isLoading: false);
@@ -163,10 +130,8 @@ jobs:
               state = state.copyWith(isLoading: true, error: null);
               try {
                 final s = await _api.login(u, p);
-                await _storage.write(key: 'u', value: u);
-                await _storage.write(key: 'p', value: p);
-                state = state.copyWith(isLoading: false, session: s);
-                return true;
+                await _storage.write(key: 'u', value: u); await _storage.write(key: 'p', value: p);
+                state = state.copyWith(isLoading: false, session: s); return true;
               } catch (e) { state = state.copyWith(isLoading: false, error: e.toString()); return false; }
             }
             Future<void> refreshQuota() async {
@@ -184,54 +149,36 @@ jobs:
             }
             Future<void> logout() async { await _storage.deleteAll(); state = const AuthState(); }
           }
-
           final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) => AuthNotifier());
 
           class VpnNotifier extends StateNotifier<AsyncValue<VpnStage>> {
             final _wg = WireGuardFlutter.instance;
             final Ref _ref;
             bool _init = false;
-            VpnNotifier(this._ref) : super(const AsyncValue.data(VpnStage.disconnected)) {
-              _wg.vpnStageSnapshot.listen((s) => state = AsyncValue.data(s));
-            }
+            VpnNotifier(this._ref) : super(const AsyncValue.data(VpnStage.disconnected)) { _wg.vpnStageSnapshot.listen((s) => state = AsyncValue.data(s)); }
             Future<void> toggle() async {
               final cur = state.valueOrNull ?? VpnStage.disconnected;
               if (!_init) { await _wg.initialize(interfaceName: AppConstants.wgInterfaceName); _init = true; }
               if (cur == VpnStage.connected || cur == VpnStage.connecting) {
-                state = const AsyncValue.loading();
-                await _wg.stopVpn();
-                await _ref.read(authProvider.notifier).refreshQuota();
-                return;
+                state = const AsyncValue.loading(); await _wg.stopVpn(); await _ref.read(authProvider.notifier).refreshQuota(); return;
               }
               final s = _ref.read(authProvider).session;
-              if (s == null || !s.isActive || s.remainingBytes <= 0) {
-                state = AsyncValue.error('Quota exhausted or inactive', StackTrace.current);
-                return;
-              }
+              if (s == null || !s.isActive || s.remainingBytes <= 0) { state = AsyncValue.error('Quota exhausted or inactive', StackTrace.current); return; }
               state = const AsyncValue.loading();
-              try {
-                await _wg.startVpn(serverAddress: s.serverEndpoint, wgQuickConfig: s.wgQuickConfig, providerBundleIdentifier: 'com.pasargad.vpn.wg');
-              } catch (e, st) { state = AsyncValue.error(e, st); }
+              try { await _wg.startVpn(serverAddress: s.serverEndpoint, wgQuickConfig: s.wgQuickConfig, providerBundleIdentifier: 'com.pasargad.vpn.wg'); }
+              catch (e, st) { state = AsyncValue.error(e, st); }
             }
           }
-
           final vpnProvider = StateNotifierProvider<VpnNotifier, AsyncValue<VpnStage>>((ref) => VpnNotifier(ref));
 
           void main() { WidgetsFlutterBinding.ensureInitialized(); runApp(const ProviderScope(child: PasargadApp())); }
 
           class PasargadApp extends ConsumerWidget {
             const PasargadApp({super.key});
-            @override
-            Widget build(BuildContext context, WidgetRef ref) {
+            @override Widget build(BuildContext context, WidgetRef ref) {
               final auth = ref.watch(authProvider);
-              return MaterialApp(
-                title: 'Pasargad VPN',
-                debugShowCheckedModeBanner: false,
-                theme: ThemeData.dark(useMaterial3: true).copyWith(scaffoldBackgroundColor: const Color(0xFF0D1117)),
-                home: auth.isLoading && auth.session == null
-                    ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-                    : auth.session != null ? const ClientDashboard() : const LoginScreen(),
-              );
+              return MaterialApp(title: 'Pasargad VPN', debugShowCheckedModeBanner: false, theme: ThemeData.dark(useMaterial3: true).copyWith(scaffoldBackgroundColor: const Color(0xFF0D1117)),
+                home: auth.isLoading && auth.session == null ? const Scaffold(body: Center(child: CircularProgressIndicator())) : auth.session != null ? const ClientDashboard() : const LoginScreen());
             }
           }
 
@@ -239,80 +186,50 @@ jobs:
             const LoginScreen({super.key});
             @override ConsumerState<LoginScreen> createState() => _LoginScreenState();
           }
-
           class _LoginScreenState extends ConsumerState<LoginScreen> {
             final _u = TextEditingController(), _p = TextEditingController();
             int _taps = 0; DateTime? _lastTap;
             void _onLogoTap() {
               final now = DateTime.now();
-              _taps = (_lastTap == null || now.difference(_lastTap!) > const Duration(seconds: 2)) ? 1 : _taps + 1;
-              _lastTap = now;
+              _taps = (_lastTap == null || now.difference(_lastTap!) > const Duration(seconds: 2)) ? 1 : _taps + 1; _lastTap = now;
               if (_taps >= 5) { _taps = 0; Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminLoginScreen())); }
             }
-            @override
-            Widget build(BuildContext context) {
+            @override Widget build(BuildContext context) {
               final auth = ref.watch(authProvider);
-              return Scaffold(
-                body: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(28),
-                    child: Column(children: [
-                      GestureDetector(onTap: _onLogoTap, child: const Icon(Icons.shield_outlined, size: 72, color: Color(0xFF00E5FF))),
-                      const SizedBox(height: 16),
-                      const Text('PASARGAD VPN', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 32),
-                      TextField(controller: _u, decoration: const InputDecoration(labelText: 'Username', border: OutlineInputBorder())),
-                      const SizedBox(height: 16),
-                      TextField(controller: _p, obscureText: true, decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder())),
-                      const SizedBox(height: 24),
-                      SizedBox(width: double.infinity, height: 50, child: FilledButton(
-                        onPressed: auth.isLoading ? null : () async {
-                          final ok = await ref.read(authProvider.notifier).loginClient(_u.text, _p.text);
-                          if (!ok && mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ref.read(authProvider).error ?? 'Login failed')));
-                        },
-                        child: auth.isLoading ? const CircularProgressIndicator() : const Text('SIGN IN'),
-                      )),
-                    ]),
-                  ),
-                ),
-              );
+              return Scaffold(body: Center(child: SingleChildScrollView(padding: const EdgeInsets.all(28), child: Column(children: [
+                GestureDetector(onTap: _onLogoTap, child: const Icon(Icons.shield_outlined, size: 72, color: Color(0xFF00E5FF))),
+                const SizedBox(height: 16), const Text('PASARGAD VPN', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), const SizedBox(height: 32),
+                TextField(controller: _u, decoration: const InputDecoration(labelText: 'Username', border: OutlineInputBorder())), const SizedBox(height: 16),
+                TextField(controller: _p, obscureText: true, decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder())), const SizedBox(height: 24),
+                SizedBox(width: double.infinity, height: 50, child: FilledButton(
+                  onPressed: auth.isLoading ? null : () async {
+                    final ok = await ref.read(authProvider.notifier).loginClient(_u.text, _p.text);
+                    if (!ok && mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ref.read(authProvider).error ?? 'Login failed')));
+                  }, child: auth.isLoading ? const CircularProgressIndicator() : const Text('SIGN IN'))),
+              ]))));
             }
           }
 
           class ClientDashboard extends ConsumerWidget {
             const ClientDashboard({super.key});
-            @override
-            Widget build(BuildContext context, WidgetRef ref) {
-              final s = ref.watch(authProvider).session!;
-              final vpn = ref.watch(vpnProvider);
-              final stage = vpn.valueOrNull ?? VpnStage.disconnected;
-              final connected = stage == VpnStage.connected;
+            @override Widget build(BuildContext context, WidgetRef ref) {
+              final s = ref.watch(authProvider).session!, vpn = ref.watch(vpnProvider), stage = vpn.valueOrNull ?? VpnStage.disconnected, connected = stage == VpnStage.connected;
               return Scaffold(
                 appBar: AppBar(title: Text(s.username), actions: [
                   IconButton(icon: const Icon(Icons.refresh), onPressed: () => ref.read(authProvider.notifier).refreshQuota()),
                   IconButton(icon: const Icon(Icons.logout), onPressed: () => ref.read(authProvider.notifier).logout()),
                 ]),
-                body: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('REMAINING QUOTA', style: TextStyle(color: Colors.grey)),
-                      Text('${s.remainingGb.toStringAsFixed(2)} GB', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFF00E5FF))),
-                      Text('Used ${s.usedGb.toStringAsFixed(2)} / ${s.totalGb.toStringAsFixed(2)} GB'),
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(value: s.usageRatio),
-                    ]))),
-                    GestureDetector(
-                      onTap: vpn.isLoading ? null : () => ref.read(vpnProvider.notifier).toggle(),
-                      child: Container(
-                        width: 180, height: 180,
-                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: connected ? Colors.greenAccent : const Color(0xFF00E5FF), width: 4)),
-                        child: Center(child: vpn.isLoading ? const CircularProgressIndicator() : Text(connected ? 'DISCONNECT' : 'CONNECT', style: const TextStyle(fontWeight: FontWeight.bold))),
-                      ),
-                    ),
-                    Text('Status: ${stage.name.toUpperCase()} (${s.serverEndpoint})'),
-                  ]),
-                ),
+                body: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('REMAINING QUOTA', style: TextStyle(color: Colors.grey)),
+                    Text('${s.remainingGb.toStringAsFixed(2)} GB', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFF00E5FF))),
+                    Text('Used ${s.usedGb.toStringAsFixed(2)} / ${s.totalGb.toStringAsFixed(2)} GB'), const SizedBox(height: 8), LinearProgressIndicator(value: s.usageRatio),
+                  ]))),
+                  GestureDetector(onTap: vpn.isLoading ? null : () => ref.read(vpnProvider.notifier).toggle(), child: Container(
+                    width: 180, height: 180, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: connected ? Colors.greenAccent : const Color(0xFF00E5FF), width: 4)),
+                    child: Center(child: vpn.isLoading ? const CircularProgressIndicator() : Text(connected ? 'DISCONNECT' : 'CONNECT', style: const TextStyle(fontWeight: FontWeight.bold))))),
+                  Text('Status: ${stage.name.toUpperCase()} (${s.serverEndpoint})'),
+                ])),
               );
             }
           }
@@ -321,25 +238,16 @@ jobs:
             const AdminLoginScreen({super.key});
             @override ConsumerState<AdminLoginScreen> createState() => _AdminLoginScreenState();
           }
-
           class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
             final _p = TextEditingController();
-            @override
-            Widget build(BuildContext context) {
-              return Scaffold(
-                appBar: AppBar(title: const Text('Admin Access')),
-                body: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  TextField(controller: _p, obscureText: true, decoration: const InputDecoration(labelText: 'Master Password', border: OutlineInputBorder())),
-                  const SizedBox(height: 20),
-                  FilledButton(onPressed: () {
-                    if (ref.read(authProvider.notifier).loginAdmin(_p.text)) {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboard()));
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Password')));
-                    }
-                  }, child: const Text('UNLOCK ADMIN')),
-                ])),
-              );
+            @override Widget build(BuildContext context) {
+              return Scaffold(appBar: AppBar(title: const Text('Admin Access')), body: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                TextField(controller: _p, obscureText: true, decoration: const InputDecoration(labelText: 'Master Password', border: OutlineInputBorder())), const SizedBox(height: 20),
+                FilledButton(onPressed: () {
+                  if (ref.read(authProvider.notifier).loginAdmin(_p.text)) { Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboard())); }
+                  else { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Password'))); }
+                }, child: const Text('UNLOCK ADMIN')),
+              ])));
             }
           }
 
@@ -347,14 +255,32 @@ jobs:
             const AdminDashboard({super.key});
             @override ConsumerState<AdminDashboard> createState() => _AdminDashboardState();
           }
-
           class _AdminDashboardState extends ConsumerState<AdminDashboard> {
-            final _u = TextEditingController(), _p = TextEditingController();
-            int _gb = 50;
-            @override
-            Widget build(BuildContext context) {
+            final _u = TextEditingController(), _p = TextEditingController(); int _gb = 50;
+            @override Widget build(BuildContext context) {
               final loading = ref.watch(authProvider).isLoading;
-              return Scaffold(
-                appBar: AppBar(title: const Text('Admin Panel')),
-                body: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
-                  TextField(controller: _u, decoration: const InputDecoration(labelText: 
+              return Scaffold(appBar: AppBar(title: const Text('Admin Panel')), body: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
+                TextField(controller: _u, decoration: const InputDecoration(labelText: 'Username', border: OutlineInputBorder())), const SizedBox(height: 16),
+                TextField(controller: _p, decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder())), const SizedBox(height: 16),
+                DropdownButtonFormField<int>(value: _gb, decoration: const InputDecoration(labelText: 'Quota (GB)', border: OutlineInputBorder()),
+                  items: [5, 10, 25, 50, 100, 250].map((e) => DropdownMenuItem(value: e, child: Text('$e GB'))).toList(), onChanged: (v) => setState(() => _gb = v ?? 50)),
+                const SizedBox(height: 24),
+                FilledButton(onPressed: loading ? null : () async {
+                  final ok = await ref.read(authProvider.notifier).createUser(_u.text, _p.text, _gb);
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'User Created' : (ref.read(authProvider).error ?? 'Error'))));
+                }, child: loading ? const CircularProgressIndicator() : const Text('CREATE USER')),
+              ])));
+            }
+          }
+          DART_EOF
+
+      - name: Build Release APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pasargad-VPN-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          
