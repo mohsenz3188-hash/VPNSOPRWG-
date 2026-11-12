@@ -27,217 +27,334 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Unpack Project & Initialize Android
+      - name: Create Flutter Project & Source
         run: |
-          python3 - << 'PYEOF'
-          import base64, io, tarfile
-          b64 = """
-          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
-          """
-          with tarfile.open(fileobj=io.BytesIO(base64.b64decode(b64)), mode="r:gz") as t:
-              t.extractall(".")
-          PYEOF
           flutter create --platforms=android --org com.pasargad --project-name pasargad_vpn .
-          python3 scripts/patch_android_config.py
+          flutter pub add flutter_riverpod dio flutter_secure_storage wireguard_flutter crypto
 
-      - name: Install Dependencies
-        run: flutter pub get
+          cat << 'MANIFEST_EOF' > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+              <application
+                  android:label="Pasargad VPN"
+                  android:name="${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <service
+                      android:name="billion.group.wireguard_flutter.WgVpnService"
+                      android:permission="android.permission.BIND_VPN_SERVICE"
+                      android:exported="false">
+                      <intent-filter>
+                          <action android:name="android.net.VpnService" />
+                      </intent-filter>
+                  </service>
+                  <meta-data android:name="flutterEmbedding" android:value="2" />
+              </application>
+          </manifest>
+          MANIFEST_EOF
 
-      - name: Build Release APK
-        run: flutter build apk --release --no-tree-shake-icons
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' android/app/build.gradle || true
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' android/app/build.gradle || true
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' android/app/build.gradle.kts || true
 
-      - name: Upload Release APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Pasargad-VPN-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
+          cat << 'DART_EOF' > lib/main.dart
+          import 'package:dio/dio.dart';
+          import 'package:flutter/material.dart';
+          import 'package:flutter_riverpod/flutter_riverpod.dart';
+          import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+          import 'package:wireguard_flutter/wireguard_flutter.dart';
+          import 'package:wireguard_flutter/wireguard_flutter_platform_interface.dart';
+
+          class AppConstants {
+            static const String baseUrl = 'https://panel.pasargad-vpn.example.com/api/v1';
+            static const String panelAdminApiKey = 'PASARGAD_PANEL_ADMIN_SECRET_BEARER_KEY';
+            static const String adminMasterPassword = r'P@s$w0rd_Admin_Pasargad!2026#X';
+            static const String wgInterfaceName = 'wg_pasargad0';
+          }
+
+          class UserSession {
+            final String username, accessToken, wgQuickConfig, serverEndpoint;
+            final int dataLimitBytes, dataUsedBytes;
+            final bool isActive;
+            const UserSession({required this.username, required this.accessToken, required this.wgQuickConfig, required this.serverEndpoint, required this.dataLimitBytes, required this.dataUsedBytes, required this.isActive});
+            int get remainingBytes => (dataLimitBytes - dataUsedBytes).clamp(0, dataLimitBytes);
+            double get remainingGb => remainingBytes / (1024 * 1024 * 1024);
+            double get totalGb => dataLimitBytes / (1024 * 1024 * 1024);
+            double get usedGb => dataUsedBytes / (1024 * 1024 * 1024);
+            double get usageRatio => dataLimitBytes > 0 ? (dataUsedBytes / dataLimitBytes).clamp(0.0, 1.0) : 0.0;
+            factory UserSession.fromJson(Map<String, dynamic> json, {String? fallbackToken}) {
+              final raw = (json['wireguard_config'] ?? json['wg_config'] ?? '') as String;
+              final ep = (json['server_endpoint'] ?? RegExp(r'Endpoint\s*=\s*([^\s\r\n]+)', caseSensitive: false).firstMatch(raw)?.group(1) ?? '127.0.0.1:51820').toString();
+              return UserSession(
+                username: (json['username'] ?? '') as String,
+                accessToken: (json['access_token'] ?? fallbackToken ?? '') as String,
+                wgQuickConfig: raw,
+                serverEndpoint: ep,
+                dataLimitBytes: (json['data_limit_bytes'] ?? json['data_limit'] ?? 0) as int,
+                dataUsedBytes: (json['data_used_bytes'] ?? json['used_traffic'] ?? 0) as int,
+                isActive: (json['status'] ?? 'active') == 'active',
+              );
+            }
+          }
+
+          class PasargadApiService {
+            final Dio _dio = Dio(BaseOptions(baseUrl: AppConstants.baseUrl, connectTimeout: const Duration(seconds: 12), receiveTimeout: const Duration(seconds: 12)));
+            Future<UserSession> login(String u, String p) async {
+              final res = await _dio.post('/client/auth/login', data: {'username': u.trim(), 'password': p});
+              final d = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : res.data['data'] as Map<String, dynamic>;
+              return UserSession.fromJson(d);
+            }
+            Future<UserSession> status(String token, String u) async {
+              final res = await _dio.get('/client/user/$u/status', options: Options(headers: {'Authorization': 'Bearer $token'}));
+              final d = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : res.data['data'] as Map<String, dynamic>;
+              return UserSession.fromJson(d, fallbackToken: token);
+            }
+            Future<void> createUser(String u, String p, int gb) async {
+              await _dio.post('/admin/users/create',
+                data: {'username': u.trim(), 'password': p, 'protocol': 'wireguard', 'data_limit': gb * 1024 * 1024 * 1024, 'data_limit_gb': gb, 'status': 'active'},
+                options: Options(headers: {'Authorization': 'Bearer ${AppConstants.panelAdminApiKey}'}),
+              );
+            }
+          }
+
+          class AuthState {
+            final bool isLoading, isAdmin;
+            final UserSession? session;
+            final String? error;
+            const AuthState({this.isLoading = false, this.isAdmin = false, this.session, this.error});
+            AuthState copyWith({bool? isLoading, bool? isAdmin, UserSession? session, bool clear = false, String? error}) =>
+              AuthState(isLoading: isLoading ?? this.isLoading, isAdmin: isAdmin ?? this.isAdmin, session: clear ? null : (session ?? this.session), error: error);
+          }
+
+          class AuthNotifier extends StateNotifier<AuthState> {
+            final _api = PasargadApiService();
+            final _storage = const FlutterSecureStorage(aOptions: AndroidOptions(encryptedSharedPreferences: true));
+            AuthNotifier() : super(const AuthState()) { _restore(); }
+            Future<void> _restore() async {
+              state = state.copyWith(isLoading: true);
+              try {
+                final u = await _storage.read(key: 'u');
+                final p = await _storage.read(key: 'p');
+                if (u != null && p != null && u.isNotEmpty && p.isNotEmpty) {
+                  final s = await _api.login(u, p);
+                  state = state.copyWith(isLoading: false, session: s);
+                  return;
+                }
+              } catch (_) {}
+              state = state.copyWith(isLoading: false);
+            }
+            Future<bool> loginClient(String u, String p) async {
+              state = state.copyWith(isLoading: true, error: null);
+              try {
+                final s = await _api.login(u, p);
+                await _storage.write(key: 'u', value: u);
+                await _storage.write(key: 'p', value: p);
+                state = state.copyWith(isLoading: false, session: s);
+                return true;
+              } catch (e) { state = state.copyWith(isLoading: false, error: e.toString()); return false; }
+            }
+            Future<void> refreshQuota() async {
+              if (state.session == null) return;
+              try { state = state.copyWith(session: await _api.status(state.session!.accessToken, state.session!.username)); } catch (_) {}
+            }
+            bool loginAdmin(String p) {
+              if (p == AppConstants.adminMasterPassword) { state = state.copyWith(isAdmin: true, error: null); return true; }
+              return false;
+            }
+            Future<bool> createUser(String u, String p, int gb) async {
+              state = state.copyWith(isLoading: true, error: null);
+              try { await _api.createUser(u, p, gb); state = state.copyWith(isLoading: false); return true; }
+              catch (e) { state = state.copyWith(isLoading: false, error: e.toString()); return false; }
+            }
+            Future<void> logout() async { await _storage.deleteAll(); state = const AuthState(); }
+          }
+
+          final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) => AuthNotifier());
+
+          class VpnNotifier extends StateNotifier<AsyncValue<VpnStage>> {
+            final _wg = WireGuardFlutter.instance;
+            final Ref _ref;
+            bool _init = false;
+            VpnNotifier(this._ref) : super(const AsyncValue.data(VpnStage.disconnected)) {
+              _wg.vpnStageSnapshot.listen((s) => state = AsyncValue.data(s));
+            }
+            Future<void> toggle() async {
+              final cur = state.valueOrNull ?? VpnStage.disconnected;
+              if (!_init) { await _wg.initialize(interfaceName: AppConstants.wgInterfaceName); _init = true; }
+              if (cur == VpnStage.connected || cur == VpnStage.connecting) {
+                state = const AsyncValue.loading();
+                await _wg.stopVpn();
+                await _ref.read(authProvider.notifier).refreshQuota();
+                return;
+              }
+              final s = _ref.read(authProvider).session;
+              if (s == null || !s.isActive || s.remainingBytes <= 0) {
+                state = AsyncValue.error('Quota exhausted or inactive', StackTrace.current);
+                return;
+              }
+              state = const AsyncValue.loading();
+              try {
+                await _wg.startVpn(serverAddress: s.serverEndpoint, wgQuickConfig: s.wgQuickConfig, providerBundleIdentifier: 'com.pasargad.vpn.wg');
+              } catch (e, st) { state = AsyncValue.error(e, st); }
+            }
+          }
+
+          final vpnProvider = StateNotifierProvider<VpnNotifier, AsyncValue<VpnStage>>((ref) => VpnNotifier(ref));
+
+          void main() { WidgetsFlutterBinding.ensureInitialized(); runApp(const ProviderScope(child: PasargadApp())); }
+
+          class PasargadApp extends ConsumerWidget {
+            const PasargadApp({super.key});
+            @override
+            Widget build(BuildContext context, WidgetRef ref) {
+              final auth = ref.watch(authProvider);
+              return MaterialApp(
+                title: 'Pasargad VPN',
+                debugShowCheckedModeBanner: false,
+                theme: ThemeData.dark(useMaterial3: true).copyWith(scaffoldBackgroundColor: const Color(0xFF0D1117)),
+                home: auth.isLoading && auth.session == null
+                    ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+                    : auth.session != null ? const ClientDashboard() : const LoginScreen(),
+              );
+            }
+          }
+
+          class LoginScreen extends ConsumerStatefulWidget {
+            const LoginScreen({super.key});
+            @override ConsumerState<LoginScreen> createState() => _LoginScreenState();
+          }
+
+          class _LoginScreenState extends ConsumerState<LoginScreen> {
+            final _u = TextEditingController(), _p = TextEditingController();
+            int _taps = 0; DateTime? _lastTap;
+            void _onLogoTap() {
+              final now = DateTime.now();
+              _taps = (_lastTap == null || now.difference(_lastTap!) > const Duration(seconds: 2)) ? 1 : _taps + 1;
+              _lastTap = now;
+              if (_taps >= 5) { _taps = 0; Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminLoginScreen())); }
+            }
+            @override
+            Widget build(BuildContext context) {
+              final auth = ref.watch(authProvider);
+              return Scaffold(
+                body: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(28),
+                    child: Column(children: [
+                      GestureDetector(onTap: _onLogoTap, child: const Icon(Icons.shield_outlined, size: 72, color: Color(0xFF00E5FF))),
+                      const SizedBox(height: 16),
+                      const Text('PASARGAD VPN', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 32),
+                      TextField(controller: _u, decoration: const InputDecoration(labelText: 'Username', border: OutlineInputBorder())),
+                      const SizedBox(height: 16),
+                      TextField(controller: _p, obscureText: true, decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder())),
+                      const SizedBox(height: 24),
+                      SizedBox(width: double.infinity, height: 50, child: FilledButton(
+                        onPressed: auth.isLoading ? null : () async {
+                          final ok = await ref.read(authProvider.notifier).loginClient(_u.text, _p.text);
+                          if (!ok && mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ref.read(authProvider).error ?? 'Login failed')));
+                        },
+                        child: auth.isLoading ? const CircularProgressIndicator() : const Text('SIGN IN'),
+                      )),
+                    ]),
+                  ),
+                ),
+              );
+            }
+          }
+
+          class ClientDashboard extends ConsumerWidget {
+            const ClientDashboard({super.key});
+            @override
+            Widget build(BuildContext context, WidgetRef ref) {
+              final s = ref.watch(authProvider).session!;
+              final vpn = ref.watch(vpnProvider);
+              final stage = vpn.valueOrNull ?? VpnStage.disconnected;
+              final connected = stage == VpnStage.connected;
+              return Scaffold(
+                appBar: AppBar(title: Text(s.username), actions: [
+                  IconButton(icon: const Icon(Icons.refresh), onPressed: () => ref.read(authProvider.notifier).refreshQuota()),
+                  IconButton(icon: const Icon(Icons.logout), onPressed: () => ref.read(authProvider.notifier).logout()),
+                ]),
+                body: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('REMAINING QUOTA', style: TextStyle(color: Colors.grey)),
+                      Text('${s.remainingGb.toStringAsFixed(2)} GB', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFF00E5FF))),
+                      Text('Used ${s.usedGb.toStringAsFixed(2)} / ${s.totalGb.toStringAsFixed(2)} GB'),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(value: s.usageRatio),
+                    ]))),
+                    GestureDetector(
+                      onTap: vpn.isLoading ? null : () => ref.read(vpnProvider.notifier).toggle(),
+                      child: Container(
+                        width: 180, height: 180,
+                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: connected ? Colors.greenAccent : const Color(0xFF00E5FF), width: 4)),
+                        child: Center(child: vpn.isLoading ? const CircularProgressIndicator() : Text(connected ? 'DISCONNECT' : 'CONNECT', style: const TextStyle(fontWeight: FontWeight.bold))),
+                      ),
+                    ),
+                    Text('Status: ${stage.name.toUpperCase()} (${s.serverEndpoint})'),
+                  ]),
+                ),
+              );
+            }
+          }
+
+          class AdminLoginScreen extends ConsumerStatefulWidget {
+            const AdminLoginScreen({super.key});
+            @override ConsumerState<AdminLoginScreen> createState() => _AdminLoginScreenState();
+          }
+
+          class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
+            final _p = TextEditingController();
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('Admin Access')),
+                body: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  TextField(controller: _p, obscureText: true, decoration: const InputDecoration(labelText: 'Master Password', border: OutlineInputBorder())),
+                  const SizedBox(height: 20),
+                  FilledButton(onPressed: () {
+                    if (ref.read(authProvider.notifier).loginAdmin(_p.text)) {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboard()));
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Password')));
+                    }
+                  }, child: const Text('UNLOCK ADMIN')),
+                ])),
+              );
+            }
+          }
+
+          class AdminDashboard extends ConsumerStatefulWidget {
+            const AdminDashboard({super.key});
+            @override ConsumerState<AdminDashboard> createState() => _AdminDashboardState();
+          }
+
+          class _AdminDashboardState extends ConsumerState<AdminDashboard> {
+            final _u = TextEditingController(), _p = TextEditingController();
+            int _gb = 50;
+            @override
+            Widget build(BuildContext context) {
+              final loading = ref.watch(authProvider).isLoading;
+              return Scaffold(
+                appBar: AppBar(title: const Text('Admin Panel')),
+                body: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
+                  TextField(controller: _u, decoration: const InputDecoration(labelText: 
