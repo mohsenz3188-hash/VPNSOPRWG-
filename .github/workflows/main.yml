@@ -3,14 +3,12 @@ name: Build Pasargad VPN APK
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
   build-android-apk:
     name: Compile Android Release APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout Repository
@@ -29,414 +27,217 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Project via Python Generator
+      - name: Unpack Project & Initialize Android
         run: |
-          python3 -c "
-          import urllib.request, base64, os, re
-
-          # 1. pubspec.yaml
-          pubspec = '''name: pasargad_vpn
-          description: Custom Android WireGuard VPN
-          publish_to: 'none'
-          version: 1.0.0+1
-          environment:
-            sdk: '>=3.4.0 <4.0.0'
-          dependencies:
-            flutter:
-              sdk: flutter
-            flutter_riverpod: ^2.6.1
-            dio: ^5.7.0
-            flutter_secure_storage: ^9.2.2
-            wireguard_flutter: ^0.1.3
-            crypto: ^3.0.5
-          dev_dependencies:
-            flutter_test:
-              sdk: flutter
-            flutter_lints: ^4.0.0
-          flutter:
-            uses-material-design: true
-          '''
-          with open('pubspec.yaml', 'w') as f:
-              f.write(pubspec)
-          "
-
-      - name: Initialize Android Platform
-        run: |
+          python3 - << 'PYEOF'
+          import base64, io, tarfile
+          b64 = """
+          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
+          """
+          with tarfile.open(fileobj=io.BytesIO(base64.b64decode(b64)), mode="r:gz") as t:
+              t.extractall(".")
+          PYEOF
           flutter create --platforms=android --org com.pasargad --project-name pasargad_vpn .
+          python3 scripts/patch_android_config.py
 
-      - name: Inject Android Manifest and Dart Source
-        run: |
-          python3 - << 'PYTHONSCRIPT'
-          import os, re
+      - name: Install Dependencies
+        run: flutter pub get
 
-          manifest = '''<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
-              <application
-                  android:label="Pasargad VPN"
-                  android:name="${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-                      <meta-data
-                        android:name="io.flutter.embedding.android.NormalTheme"
-                        android:resource="@style/NormalTheme" />
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <service
-                      android:name="billion.group.wireguard_flutter.WgVpnService"
-                      android:permission="android.permission.BIND_VPN_SERVICE"
-                      android:exported="false">
-                      <intent-filter>
-                          <action android:name="android.net.VpnService" />
-                      </intent-filter>
-                  </service>
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
-              </application>
-          </manifest>'''
+      - name: Build Release APK
+        run: flutter build apk --release --no-tree-shake-icons
 
-          manifest_path = "android/app/src/main/AndroidManifest.xml"
-          os.makedirs(os.path.dirname(manifest_path), exist_ok=True)
-          with open(manifest_path, "w", encoding="utf-8") as f:
-              f.write(manifest)
-
-          for g in ["android/app/build.gradle", "android/app/build.gradle.kts"]:
-              if os.path.exists(g):
-                  with open(g, "r", encoding="utf-8") as f:
-                      content = f.read()
-                  content = re.sub(r"minSdk\s*=\s*flutter\.minSdkVersion", "minSdk = 24", content)
-                  content = re.sub(r"minSdkVersion\s+flutter\.minSdkVersion", "minSdkVersion 24", content)
-                  with open(g, "w", encoding="utf-8") as f:
-                      f.write(content)
-
-          code = {}
-          code["lib/core/constants/app_constants.dart"] = """class AppConstants {
-            AppConstants._();
-            static const String baseUrl = 'https://panel.pasargad-vpn.example.com/api/v1';
-            static const String panelAdminApiKey = 'PASARGAD_PANEL_ADMIN_SECRET_BEARER_KEY';
-            static const String adminMasterPassword = r'P@s$w0rd_Admin_Pasargad!2026#X';
-            static const String wgInterfaceName = 'wg_pasargad0';
-            static const String keyClientUsername = 'pasargad_client_username';
-            static const String keyClientPassword = 'pasargad_client_password';
-            static const String keyClientAccessToken = 'pasargad_client_jwt_token';
-            static const String keyCachedWgConfig = 'pasargad_cached_wg_conf';
-            static const String keyCachedServerAddress = 'pasargad_cached_endpoint';
-          }"""
-
-          code["lib/core/storage/secure_storage_service.dart"] = """import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-          import '../constants/app_constants.dart';
-
-          class SecureStorageService {
-            final FlutterSecureStorage _storage = const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-            );
-
-            Future<void> saveClientSession({
-              required String username,
-              required String password,
-              required String token,
-              required String wgConfig,
-              required String serverAddress,
-            }) async {
-              await Future.wait([
-                _storage.write(key: AppConstants.keyClientUsername, value: username),
-                _storage.write(key: AppConstants.keyClientPassword, value: password),
-                _storage.write(key: AppConstants.keyClientAccessToken, value: token),
-                _storage.write(key: AppConstants.keyCachedWgConfig, value: wgConfig),
-                _storage.write(key: AppConstants.keyCachedServerAddress, value: serverAddress),
-              ]);
-            }
-
-            Future> getSavedCredentials() async {
-              final results = await Future.wait([
-                _storage.read(key: AppConstants.keyClientUsername),
-                _storage.read(key: AppConstants.keyClientPassword),
-                _storage.read(key: AppConstants.keyClientAccessToken),
-                _storage.read(key: AppConstants.keyCachedWgConfig),
-                _storage.read(key: AppConstants.keyCachedServerAddress),
-              ]);
-              return {
-                'username': results[0],
-                'password': results[1],
-                'token': results[2],
-                'wgConfig': results[3],
-                'serverAddress': results[4],
-              };
-            }
-
-            Future<void> clearClientSession() async {
-              await _storage.deleteAll();
-            }
-          }"""
-
-          code["lib/data/models/user_session_model.dart"] = """class UserSessionModel {
-            final String username;
-            final String accessToken;
-            final String wgQuickConfig;
-            final String serverEndpoint;
-            final int dataLimitBytes;
-            final int dataUsedBytes;
-            final bool isActive;
-
-            const UserSessionModel({
-              required this.username,
-              required this.accessToken,
-              required this.wgQuickConfig,
-              required this.serverEndpoint,
-              required this.dataLimitBytes,
-              required this.dataUsedBytes,
-              required this.isActive,
-            });
-
-            int get remainingBytes => (dataLimitBytes - dataUsedBytes).clamp(0, dataLimitBytes);
-            double get remainingGb => remainingBytes / (1024 * 1024 * 1024);
-            double get totalGb => dataLimitBytes / (1024 * 1024 * 1024);
-            double get usedGb => dataUsedBytes / (1024 * 1024 * 1024);
-            double get usageRatio => dataLimitBytes > 0 ? (dataUsedBytes / dataLimitBytes).clamp(0.0, 1.0) : 0.0;
-
-            factory UserSessionModel.fromJson(Map<String, dynamic> json, {String? fallbackToken}) {
-              final String rawWgConfig = (json['wireguard_config'] ?? json['wg_config'] ?? '') as String;
-              final String endpoint = (json['server_endpoint'] ?? _extractEndpoint(rawWgConfig) ?? '127.0.0.1:51820').toString();
-              return UserSessionModel(
-                username: (json['username'] ?? '') as String,
-                accessToken: (json['access_token'] ?? fallbackToken ?? '') as String,
-                wgQuickConfig: rawWgConfig,
-                serverEndpoint: endpoint,
-                dataLimitBytes: (json['data_limit_bytes'] ?? json['data_limit'] ?? 0) as int,
-                dataUsedBytes: (json['data_used_bytes'] ?? json['used_traffic'] ?? 0) as int,
-                isActive: (json['status'] ?? 'active') == 'active',
-              );
-            }
-
-            static String? _extractEndpoint(String config) {
-              final RegExp regex = RegExp(r'Endpoint\\s*=\\s*([^\\s\\r\\n]+)', caseSensitive: false);
-              return regex.firstMatch(config)?.group(1);
-            }
-          }"""
-
-          code["lib/data/models/create_user_request.dart"] = """class CreateUserRequest {
-            final String username;
-            final String password;
-            final int dataLimitGb;
-
-            const CreateUserRequest({
-              required this.username,
-              required this.password,
-              required this.dataLimitGb,
-            });
-
-            int get dataLimitBytes => dataLimitGb * 1024 * 1024 * 1024;
-
-            Map<String, dynamic> toJson() {
-              return {
-                'username': username.trim(),
-                'password': password,
-                'protocol': 'wireguard',
-                'data_limit': dataLimitBytes,
-                'data_limit_gb': dataLimitGb,
-                'status': 'active',
-                'inbounds': {
-                  'wireguard': ['WG_MAIN_INBOUND'],
-                },
-              };
-            }
-          }"""
-
-          code["lib/data/services/pasargad_api_service.dart"] = """import 'package:dio/dio.dart';
-          import '../../core/constants/app_constants.dart';
-          import '../models/create_user_request.dart';
-          import '../models/user_session_model.dart';
-
-          class PasargadApiException implements Exception {
-            final String message;
-            final int? statusCode;
-            const PasargadApiException(this.message, {this.statusCode});
-            @override
-            String toString() => message;
-          }
-
-          class PasargadApiService {
-            late final Dio _dio;
-
-            PasargadApiService() {
-              _dio = Dio(
-                BaseOptions(
-                  baseUrl: AppConstants.baseUrl,
-                  connectTimeout: const Duration(seconds: 12),
-                  receiveTimeout: const Duration(seconds: 12),
-                  headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-                ),
-              );
-            }
-
-            Future<UserSessionModel> loginAndFetchConfig({required String username, required String password}) async {
-              try {
-                final response = await _dio.post('/client/auth/login', data: {'username': username.trim(), 'password': password});
-                if (response.statusCode == 200 && response.data != null) {
-                  final data = response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : (response.data['data'] as Map<String, dynamic>);
-                  return UserSessionModel.fromJson(data);
-                }
-                throw PasargadApiException('Unexpected server response (${response.statusCode})', statusCode: response.statusCode);
-              } on DioException catch (e) {
-                throw _handleDioError(e, defaultMsg: 'Failed to authenticate with Pasargad Panel.');
-              }
-            }
-
-            Future<UserSessionModel> fetchUserStatus({required String accessToken, required String username}) async {
-              try {
-                final response = await _dio.get('/client/user/$username/status', options: Options(headers: {'Authorization': 'Bearer $accessToken'}));
-                if (response.statusCode == 200 && response.data != null) {
-                  final data = response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : (response.data['data'] as Map<String, dynamic>);
-                  return UserSessionModel.fromJson(data, fallbackToken: accessToken);
-                }
-                throw PasargadApiException('Failed to fetch user traffic status.', statusCode: response.statusCode);
-              } on DioException catch (e) {
-                throw _handleDioError(e, defaultMsg: 'Unable to sync quota with Pasargad Panel.');
-              }
-            }
-
-            Future> createWireGuardUser(CreateUserRequest request) async {
-              try {
-                final response = await _dio.post(
-                  '/admin/users/create',
-                  data: request.toJson(),
-                  options: Options(headers: {'Authorization': 'Bearer ${AppConstants.panelAdminApiKey}'}),
-                );
-                if (response.statusCode == 200 || response.statusCode == 201) {
-                  return response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : {'status': 'created', 'username': request.username};
-                }
-                throw PasargadApiException('Failed to create user (HTTP ${response.statusCode})', statusCode: response.statusCode);
-              } on DioException catch (e) {
-                throw _handleDioError(e, defaultMsg: 'Could not create user on Pasargad Panel.');
-              }
-            }
-
-            PasargadApiException _handleDioError(DioException e, {required String defaultMsg}) {
-              final statusCode = e.response?.statusCode;
-              final responseData = e.response?.data;
-              String serverMessage = defaultMsg;
-              if (responseData is Map<String, dynamic>) {
-                serverMessage = (responseData['detail'] ?? responseData['message'] ?? responseData['error'] ?? defaultMsg).toString();
-              } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
-                serverMessage = 'Connection to Pasargad Panel timed out.';
-              } else if (e.type == DioExceptionType.connectionError) {
-                serverMessage = 'Cannot reach Pasargad Panel server.';
-              }
-              return PasargadApiException(serverMessage, statusCode: statusCode);
-            }
-          }"""
-
-          code["lib/data/services/wireguard_vpn_service.dart"] = """import 'dart:async';
-          import 'package:wireguard_flutter/wireguard_flutter.dart';
-          import 'package:wireguard_flutter/wireguard_flutter_platform_interface.dart';
-          import '../../core/constants/app_constants.dart';
-
-          class WireGuardVpnService {
-            final WireGuardFlutterInterface _wireguard = WireGuardFlutter.instance;
-            bool _isInitialized = false;
-
-            Stream<VpnStage> get vpnStageStream => _wireguard.vpnStageSnapshot;
-
-            Future<void> ensureInitialized() async {
-              if (_isInitialized) return;
-              await _wireguard.initialize(interfaceName: AppConstants.wgInterfaceName);
-              _isInitialized = true;
-            }
-
-            Future<void> connect({required String wgQuickConfig, required String serverEndpoint}) async {
-              await ensureInitialized();
-              if (wgQuickConfig.trim().isEmpty) {
-                throw Exception('WireGuard configuration string is empty.');
-              }
-              await _wireguard.startVpn(
-                serverAddress: serverEndpoint,
-                wgQuickConfig: wgQuickConfig,
-                providerBundleIdentifier: 'com.pasargad.vpn.wg',
-              );
-            }
-
-            Future<void> disconnect() async {
-              await ensureInitialized();
-              await _wireguard.stopVpn();
-            }
-
-            Future<VpnStage> getCurrentStage() async {
-              await ensureInitialized();
-              return await _wireguard.stage();
-            }
-          }"""
-
-          code["lib/providers/auth_provider.dart"] = """import 'package:flutter_riverpod/flutter_riverpod.dart';
-          import '../core/constants/app_constants.dart';
-          import '../core/storage/secure_storage_service.dart';
-          import '../data/models/create_user_request.dart';
-          import '../data/models/user_session_model.dart';
-          import '../data/services/pasargad_api_service.dart';
-
-          final secureStorageProvider = Provider<SecureStorageService>((ref) => SecureStorageService());
-          final pasargadApiProvider = Provider<PasargadApiService>((ref) => PasargadApiService());
-
-          class AuthState {
-            final bool isLoading;
-            final bool isAdminAuthenticated;
-            final UserSessionModel? clientSession;
-            final String? errorMessage;
-
-            const AuthState({
-              this.isLoading = false,
-              this.isAdminAuthenticated = false,
-              this.clientSession,
-              this.errorMessage,
-            });
-
-            AuthState copyWith({
-              bool? isLoading,
-              bool? isAdminAuthenticated,
-              UserSessionModel? clientSession,
-              bool clearClientSession = false,
-              String? errorMessage,
-            }) {
-              return AuthState(
-                isLoading: isLoading ?? this.isLoading,
-                isAdminAuthenticated: isAdminAuthenticated ?? this.isAdminAuthenticated,
-                clientSession: clearClientSession ? null : (clientSession ?? this.clientSession),
-                errorMessage: errorMessage,
-              );
-            }
-          }
-
-          class AuthNotifier extends StateNotifier<AuthState> {
-            final PasargadApiService _apiService;
-            final SecureStorageService _storageService;
-
-            AuthNotifier(this._apiService, this._storageService) : super(const AuthState()) {
-              restoreSavedSession();
-            }
-
-            Future<void> restoreSavedSession() async {
-              state = state.copyWith(isLoading: true, errorMessage: null);
-              try {
-                final saved = await _storageService.getSavedCredentials();
-                final username = saved['username'];
-                final password = saved['password'];
-                if (username != null && username.isNotEmpty && password != null && password.isNotEmpty) {
-                  final session = await _apiService.loginAndFetchConfig(username: username, password: password);
-                  await _storageService.saveClientSession(
-                    username: username,
-                    password: password,
-                    token: session.accessToken,
-                    wgConfig: session.wgQuickConfig,
-                    serverAddress: session.serverEndpoint,
-                  );
-                  state = state.copyWith(isLoadin
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pasargad-VPN-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
